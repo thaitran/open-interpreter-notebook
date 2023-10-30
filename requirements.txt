@@ -1,0 +1,5 @@
+gradio==3.44.4
+gradio_client==0.5.1
+nbformat==5.9.2
+open-interpreter==0.1.10
+openai==0.28.1
