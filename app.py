@@ -17,10 +17,24 @@ def add_user_message(history, user_message):
     history = history + [(user_message, "")]
     return history, ""
 
+def reset_interpreter():
+    # HACK: interpreter.reset() sometimes has an exception when running in 
+    # Gradio so I'm manually resetting the state below
+
+    interpreter.messages = [ ]
+
+    if "shell" in interpreter._code_interpreters and interpreter._code_interpreters["shell"].process is not None:
+        interpreter._code_interpreters["shell"].terminate()
+    if "python" in interpreter._code_interpreters and interpreter._code_interpreters["python"].process is not None:
+        interpreter._code_interpreters["python"].terminate()
+
+    interpreter._code_interpreters["shell"] = create_code_interpreter("shell")
+    interpreter._code_interpreters["python"] = create_code_interpreter("python")
+
+
 def generate(model, history):
     if len(history) == 1:
-        print("Resetting interpreter")
-        interpreter.reset()
+        reset_interpreter()
 
     interpreter.model = model
 
@@ -50,18 +64,7 @@ def generate(model, history):
 def notebook_to_chat(history, file):
     history = [ [ "Here are the contents of a Jupyter notebook", "" ] ]
 
-    # HACK: Reset Open Interpreter
-    # interpreter.reset() seems to not be thread safe when running in 
-    # Gradio so I'm manually resetting the state below
-    interpreter.messages = [ ]
-
-    if "shell" in interpreter._code_interpreters and interpreter._code_interpreters["shell"].process is not None:
-        interpreter._code_interpreters["shell"].terminate()
-    if "python" in interpreter._code_interpreters and interpreter._code_interpreters["python"].process is not None:
-        interpreter._code_interpreters["python"].terminate()
-
-    interpreter._code_interpreters["shell"] = create_code_interpreter("shell")
-    interpreter._code_interpreters["python"] = create_code_interpreter("python")
+    reset_interpreter()
 
     # Convert Jupyter Notebook file into Open Interpreter messages
     with open(file.name, "r") as f:
@@ -118,7 +121,8 @@ def notebook_to_chat(history, file):
                     "role": "assistant",   # HACK: Assume all code cells are written by the assistant
                     "language": "python",  # HACK: Assume all code cells are Python
                     "code": content,
-                    "output": output
+                    "output": output,
+                    "message": ""
                 })
                 
                 yield history
@@ -186,7 +190,7 @@ with gr.Blocks(css=CSS) as demo:
 
     user_message.submit(add_user_message, [chatbot, user_message], [chatbot, user_message], queue=False).then(generate, [model, chatbot], chatbot)
 
-    load_button.upload(notebook_to_chat, [chatbot, load_button], [chatbot])
+    load_button.upload(notebook_to_chat, [chatbot, load_button], [chatbot], queue=True)
     save_button.click(chat_to_notebook, [chatbot], [notebook_file], queue=False)
     
 demo.queue().launch(debug=True, share=False)
