@@ -4,7 +4,7 @@ import gradio as gr
 import tempfile
 import nbformat
 
-interpreter.model = "gpt-3.5-turbo"
+interpreter.model = "gpt-4"
 interpreter.auto_run = True
 
 USER_HEADING = "##### User:\n"
